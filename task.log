@@ -1,0 +1,108 @@
+2025-01-09 14:27:28,891 - root - INFO - Robot started.
+2025-01-09 14:27:28,891 - root - INFO - Browsing module started.
+2025-01-09 14:27:28,891 - root - INFO - Browsing session started.
+2025-01-09 14:27:33,892 - WDM - INFO - ====== WebDriver manager ======
+2025-01-09 14:27:34,120 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:27:34,615 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:27:35,261 - WDM - INFO - There is no [linux64] chromedriver "131.0.6778.264" for browser google-chrome "131.0.6778" in cache
+2025-01-09 14:27:35,261 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:27:36,751 - WDM - INFO - WebDriver version 131.0.6778.264 selected
+2025-01-09 14:27:36,756 - WDM - INFO - Modern chrome version https://storage.googleapis.com/chrome-for-testing-public/131.0.6778.264/linux64/chromedriver-linux64.zip
+2025-01-09 14:27:36,756 - WDM - INFO - About to download new driver from https://storage.googleapis.com/chrome-for-testing-public/131.0.6778.264/linux64/chromedriver-linux64.zip
+2025-01-09 14:27:37,534 - WDM - INFO - Driver downloading response is 200
+2025-01-09 14:27:42,400 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:27:42,786 - WDM - INFO - Driver has been saved in cache [/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264]
+2025-01-09 14:28:42,788 - root - ERROR - DePrati An error has ocurred during scan categories
+2025-01-09 14:28:42,789 - root - ERROR - details: [Errno 8] Exec format error: '/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver'
+2025-01-09 14:28:43,457 - WDM - INFO - ====== WebDriver manager ======
+2025-01-09 14:28:43,616 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:28:43,786 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:28:44,015 - WDM - INFO - Driver [/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver] found in cache
+2025-01-09 14:29:34,744 - root - INFO - Robot started.
+2025-01-09 14:29:34,744 - root - INFO - Browsing module started.
+2025-01-09 14:29:34,744 - root - INFO - Browsing session started.
+2025-01-09 14:29:39,745 - WDM - INFO - ====== WebDriver manager ======
+2025-01-09 14:29:39,920 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:29:40,581 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:29:41,217 - WDM - INFO - Driver [/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver] found in cache
+2025-01-09 14:30:41,218 - root - ERROR - DePrati An error has ocurred during scan categories
+2025-01-09 14:30:41,218 - root - ERROR - details: [Errno 8] Exec format error: '/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver'
+2025-01-09 14:30:42,822 - WDM - INFO - ====== WebDriver manager ======
+2025-01-09 14:30:42,992 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:30:43,470 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:30:44,292 - WDM - INFO - Driver [/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver] found in cache
+2025-01-09 14:31:44,294 - root - ERROR - DePrati An error has ocurred during scan categories
+2025-01-09 14:31:44,294 - root - ERROR - details: [Errno 8] Exec format error: '/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver'
+2025-01-09 14:31:45,751 - WDM - INFO - ====== WebDriver manager ======
+2025-01-09 14:31:45,909 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:31:46,554 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:31:47,365 - WDM - INFO - Driver [/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver] found in cache
+2025-01-09 14:32:47,366 - root - ERROR - DePrati An error has ocurred during scan categories
+2025-01-09 14:32:47,367 - root - ERROR - details: [Errno 8] Exec format error: '/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver'
+2025-01-09 14:32:47,367 - root - INFO - Excution DePrati Time: 192.62301516532898 s
+2025-01-09 14:32:47,371 - root - INFO - Browsing session finished.
+2025-01-09 14:32:47,371 - root - INFO - Browsing module finished.
+2025-01-09 14:32:47,371 - root - INFO - Homolated Data module started.
+2025-01-09 14:32:49,829 - root - INFO - The following exception has ocurred during sending email notifications: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials 00721157ae682-6f546e31db1sm3649957b3.105 - gsmtp')
+2025-01-09 14:32:49,829 - root - ERROR - An error occurred: [Errno 2] No such file or directory: '/home/ferney/Escritorio/blacksmith/price_tracking/Backup/dataset_HM.csv'
+2025-01-09 14:34:51,933 - root - INFO - Robot started.
+2025-01-09 14:34:51,933 - root - INFO - Browsing module started.
+2025-01-09 14:34:51,933 - root - INFO - Browsing session started.
+2025-01-09 14:34:56,934 - WDM - INFO - ====== WebDriver manager ======
+2025-01-09 14:34:57,095 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:34:57,525 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:34:58,444 - WDM - INFO - Driver [/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver] found in cache
+2025-01-09 14:35:58,447 - root - ERROR - DePrati An error has ocurred during scan categories
+2025-01-09 14:35:58,447 - root - ERROR - details: [Errno 8] Exec format error: '/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver'
+2025-01-09 14:35:59,455 - WDM - INFO - ====== WebDriver manager ======
+2025-01-09 14:35:59,635 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:36:00,110 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:36:00,908 - WDM - INFO - Driver [/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver] found in cache
+2025-01-09 14:37:00,910 - root - ERROR - DePrati An error has ocurred during scan categories
+2025-01-09 14:37:00,911 - root - ERROR - details: [Errno 8] Exec format error: '/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver'
+2025-01-09 14:37:02,453 - WDM - INFO - ====== WebDriver manager ======
+2025-01-09 14:37:02,604 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:37:03,169 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:37:03,788 - WDM - INFO - Driver [/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver] found in cache
+2025-01-09 14:38:03,790 - root - ERROR - DePrati An error has ocurred during scan categories
+2025-01-09 14:38:03,791 - root - ERROR - details: [Errno 8] Exec format error: '/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver'
+2025-01-09 14:38:03,791 - root - INFO - Excution DePrati Time: 191.8575885295868 s
+2025-01-09 14:38:03,793 - root - INFO - Browsing session finished.
+2025-01-09 14:38:03,793 - root - INFO - Browsing module finished.
+2025-01-09 14:38:03,793 - root - INFO - Homolated Data module started.
+2025-01-09 14:38:06,649 - root - INFO - The following exception has ocurred during sending email notifications: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials 00721157ae682-6f546c25dcdsm3671027b3.14 - gsmtp')
+2025-01-09 14:38:06,649 - root - ERROR - An error occurred: [Errno 2] No such file or directory: '/home/ferney/Escritorio/blacksmith/price_tracking/Backup/dataset_HM.csv'
+2025-01-09 14:39:39,382 - root - INFO - Robot started.
+2025-01-09 14:39:39,382 - root - INFO - Browsing module started.
+2025-01-09 14:39:39,382 - root - INFO - Browsing session started.
+2025-01-09 14:39:44,383 - WDM - INFO - ====== WebDriver manager ======
+2025-01-09 14:39:44,574 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:39:45,207 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:39:45,984 - WDM - INFO - Driver [/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver] found in cache
+2025-01-09 14:40:45,987 - root - ERROR - DePrati An error has ocurred during scan categories
+2025-01-09 14:40:45,987 - root - ERROR - details: [Errno 8] Exec format error: '/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver'
+2025-01-09 14:40:46,197 - WDM - INFO - ====== WebDriver manager ======
+2025-01-09 14:40:46,363 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:40:46,598 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:40:46,785 - WDM - INFO - Driver [/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver] found in cache
+2025-01-09 14:41:46,787 - root - ERROR - DePrati An error has ocurred during scan categories
+2025-01-09 14:41:46,787 - root - ERROR - details: [Errno 8] Exec format error: '/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver'
+2025-01-09 14:41:47,419 - WDM - INFO - ====== WebDriver manager ======
+2025-01-09 14:41:47,578 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:41:48,243 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 14:41:48,900 - WDM - INFO - Driver [/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver] found in cache
+2025-01-09 14:42:48,902 - root - ERROR - DePrati An error has ocurred during scan categories
+2025-01-09 14:42:48,902 - root - ERROR - details: [Errno 8] Exec format error: '/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver'
+2025-01-09 14:42:48,903 - root - INFO - Excution DePrati Time: 189.5199978351593 s
+2025-01-09 14:42:48,906 - root - INFO - Browsing session finished.
+2025-01-09 14:42:48,906 - root - INFO - Browsing module finished.
+2025-01-09 14:42:48,907 - root - INFO - Homolated Data module started.
+2025-01-09 14:42:51,930 - root - INFO - The following exception has ocurred during sending email notifications: (535, b'5.7.8 Username and Password not accepted. For more information, go to\n5.7.8  https://support.google.com/mail/?p=BadCredentials 00721157ae682-6f546c438f2sm3693217b3.47 - gsmtp')
+2025-01-09 14:42:51,930 - root - ERROR - An error occurred: [Errno 2] No such file or directory: '/home/ferney/Escritorio/blacksmith/price_tracking/Backup/dataset_ZARA.csv'
+2025-01-09 15:41:09,216 - root - INFO - Robot started.
+2025-01-09 15:41:09,216 - root - INFO - Browsing module started.
+2025-01-09 15:41:09,217 - root - INFO - Browsing session started.
+2025-01-09 15:41:14,217 - WDM - INFO - ====== WebDriver manager ======
+2025-01-09 15:41:14,383 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 15:41:15,276 - WDM - INFO - Get LATEST chromedriver version for google-chrome
+2025-01-09 15:41:16,067 - WDM - INFO - Driver [/home/ferney/.wdm/drivers/chromedriver/linux64/131.0.6778.264/chromedriver-linux64/THIRD_PARTY_NOTICES.chromedriver] found in cache
