@@ -14,7 +14,7 @@ OUTPUT_DIR = "Backup"
 CSV_FILENAME = "siman_data.csv"
 
 # URL de la categoría
-TARGET_URL = "https://cr.siman.com/moda/ropa-de-mujer/"
+TARGET_URL = "https://cr.siman.com/moda/ropa-de-hombre"
 
 class SimanScraper:
     def __init__(self):
