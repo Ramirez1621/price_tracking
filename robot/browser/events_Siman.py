@@ -239,8 +239,8 @@ class SimanScraper:
                     "item_characteristics": f"{descripcion} | {specifications}",
                     "url sku": product_url,
                     "image": image_url,
-                    "price": price_val,
-                    "sale_price": list_price_val,
+                    "price":  list_price_val,
+                    "sale_price": price_val,
                     "shipment cost": "available" if price_val > 0 else "not available",
                     "sales flag": discount,  # Aquí guardamos el porcentaje real (ej. "-50%")
                     "store id": "9999_siman_cr",

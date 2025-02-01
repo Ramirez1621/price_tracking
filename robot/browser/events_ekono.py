@@ -1,360 +1,293 @@
 import logging
 import datetime as dt
-import time
-import json
-import pandas as pd
+import os
 import re
+import pandas as pd
+from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
+from urllib.parse import urljoin
 
-from os.path import join
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-from selenium.webdriver import Firefox
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait, Select
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
+BASE_URL = "https://www.tiendasekono.com"
+START_URL = "https://www.tiendasekono.com/hombre.html"  # o "mujer.html"
 
-from tenacity import retry, wait_random_exponential, stop_after_attempt
+OUTPUT_DIR = "output_ekono"
+CSV_FILENAME = "ekono_data.csv"
 
-# Aquí debes importar o definir tu método para abrir el navegador
-# from .web_driver import WebDriver, open_browser
-
-# Constante con la URL
-SEKONO_URL = "https://www.tiendasekono.com/"
-
-# Ajusta según tus necesidades
-BASE_DIR = "./"
-EXCLUSION_LIST = ["Promociones", "Sale", "Ofertas", "Rebajas"]  # Ejemplo
-INCLUSION_LIST = ["Ropa", "Zapatos", "Accesorios"]             # Ejemplo
-
-class SekonoSession():
+class EkonoScraper:
     def __init__(self):
         self.records = []
+        self.all_product_urls = set()
+        self.browser = None
 
-    def start_scrapping(self, semaphore):
-        """
-        Método principal para lanzar todo el proceso de scraping.
-        """
-        with semaphore:
-            start = time.time()
-            driver = self.open_browser()  # Ajusta a tu método real de abrir browser
-            self.open_page(driver)
+    def scrape(self):
+        with sync_playwright() as p:
+            self.browser = p.firefox.launch(headless=False)
+            page = self.browser.new_page()
 
-            # Espera opcional por si carga un pop-up o splash inicial
-            time.sleep(5)
+            page.goto(START_URL, timeout=60000)
+            logging.info(f"Navegando a la categoría: {START_URL}")
+            page.wait_for_load_state("networkidle", timeout=60000)
 
-            # Seleccionar categorías principales
-            self.select_categories(driver)
+            # Extraer productos con paginación
+            self.process_products_in_page(page, category="", subcategory="", subcategory_2="")
 
-            driver.quit()
-            end = time.time()
-            logging.info(f"Ejecución Sekono: {end - start} s")
+            self.save_to_csv()
+            self.browser.close()
 
-            backup_dataset = join(BASE_DIR, "Backup")
-            df = pd.DataFrame.from_records(self.records)
-            print("Voy a guardar el CSV en:", join(backup_dataset, "dataset_HM.csv"))
-            print("Número de registros en self.records:", len(self.records))
-            df.to_csv(join(backup_dataset, f"dataset_SEKONO.csv"), index=False)
+    def process_products_in_page(self, page, category, subcategory, subcategory_2):
+        while True:
+            soup = BeautifulSoup(page.content(), "html.parser")
 
-    def open_browser(self):
-        """
-        Retorna la instancia del navegador con las configuraciones que requieras.
-        Por ejemplo, usando Firefox:
-        """
-        from selenium.webdriver import Firefox
-        from selenium.webdriver.firefox.options import Options
+            product_ol = soup.find("ol", class_="products list items product-items")
+            if not product_ol:
+                logging.info("No se encontró la lista de productos. Terminando.")
+                break
 
-        options = Options()
-        # options.add_argument("--headless") # Quita el comentario si deseas sin interfaz
-        driver = Firefox(options=options)
-        driver.maximize_window()
-        return driver
+            product_lis = product_ol.find_all("li", class_="item product product-item")
+            logging.info(f"Se encontraron {len(product_lis)} productos en la página actual.")
 
-    def open_page(self, driver):
+            new_count = 0
+            for li in product_lis:
+                link_tag = li.find("a", class_="product-item-link", href=True)
+                if not link_tag:
+                    link_tag = li.find("a", class_="product photo product-item-photo", href=True)
+                if not link_tag:
+                    continue
+
+                product_url = urljoin(BASE_URL, link_tag["href"])
+                if product_url not in self.all_product_urls:
+                    self.all_product_urls.add(product_url)
+                    new_count += 1
+
+                    self.process_product_detail_in_new_page(
+                        product_url,
+                        canal_category="EKONO (CR)",
+                        category=category,
+                        subcategory=subcategory,
+                        subcategory_2=subcategory_2
+                    )
+
+            if new_count == 0:
+                logging.info("No se encontraron productos nuevos. Rompiendo ciclo.")
+                break
+
+            # Paginación => "Siguiente"
+            next_btn = soup.select_one("ul.pages-items li.item.pages-item-next a.action.next")
+            if not next_btn or not next_btn.get("href"):
+                logging.info("No hay siguiente página. Fin de paginación.")
+                break
+
+            next_url = urljoin(BASE_URL, next_btn["href"])
+            logging.info(f"Pasando a la siguiente página: {next_url}")
+            page.goto(next_url, timeout=60000)
+            page.wait_for_load_state("networkidle", timeout=60000)
+
+    def process_product_detail_in_new_page(self, product_url, canal_category, category, subcategory, subcategory_2):
         try:
-            driver.get(SEKONO_URL)
+            new_context = self.browser.new_context()
+            detail_page = new_context.new_page()
+
+            detail_page.goto(product_url, timeout=120000, wait_until="domcontentloaded")
+            detail_page.wait_for_load_state("domcontentloaded", timeout=120000)
+            detail_page.wait_for_timeout(2000)  # Espera 2s adicional
+
+            self.extract_product_details(detail_page, product_url, canal_category, category, subcategory, subcategory_2)
+
+            detail_page.close()
+            new_context.close()
         except Exception as e:
-            logging.error(f"Error al abrir {SEKONO_URL}: {type(e)} - {e}")
-            raise e
+            logging.error(f"Error al procesar {product_url}: {e}")
 
-    # ----------------------------------------------------------------------------------------
-    def select_categories(self, driver):
-        """
-        Método para capturar las categorías principales y navegar sus subcategorías.
-        Ajusta los XPATH / selectores para que encajen con la estructura de tiendasekono.com.
-        """
+    def extract_product_details(self, page, product_url,
+                                canal_category, category, subcategory, subcategory_2):
         try:
-            # Ejemplo: localizador para el menú principal
-            categories = WebDriverWait(driver, 10).until(
-                EC.presence_of_all_elements_located((
-                    By.XPATH,
-                    "//nav[contains(@class, 'navigation')]//ul[@class='menu']//li/a"
-                ))
-            )
+            soup = BeautifulSoup(page.content(), "html.parser")
+            subcategory_3 = None
 
-            subcategories_links = []
-            for cat in categories:
-                cat_name = cat.get_attribute("innerText").strip()
-                
-                # Filtramos categorías que NO queremos (EXCLUSION_LIST), 
-                # o que sí queremos (INCLUSION_LIST) según tu propia lógica.
-                # if cat_name in EXCLUSION_LIST:
-                #     continue
-                # if cat_name not in INCLUSION_LIST:
-                #     continue
+            # 1) Extraer breadcrumb
+            breadcrumb_items = soup.select("ul.items > li.item")
+            # Ej: [0=Inicio, 1=Hombre, 2=NombreProducto]
 
-                # Guardamos el href y nombre
-                href = cat.get_attribute("href")
-                subcategories_links.append((cat_name, href))
+            # Forzamos: category = crumb[1], subcategory y subcategory_2 = ""
+            # si solo hay 2 o 3 items.
+            if len(breadcrumb_items) >= 2:
+                cat_text = breadcrumb_items[1].get_text(strip=True)
+                category = cat_text
+            else:
+                category = ""
 
-            # Recorre cada categoría principal
-            for cat_name, cat_href in subcategories_links:
-                logging.info(f"Abriendo categoría principal: {cat_name} => {cat_href}")
-                self.select_subcategory(driver, cat_name, cat_href)
+            # No usamos subcategory / subcategory_2 a menos que haya más items.
+            subcategory = ""
+            subcategory_2 = ""
+            subcategory_3 = None
 
-        except Exception as e:
-            logging.error("Error al obtener categorías principales")
-            logging.error(f"Detalles: {e}")
+            # 2) Nombre => <h1 class="page-title">
+            product_name = "Sin Nombre"
+            name_tag = soup.find("h1", class_="page-title")
+            if name_tag:
+                product_name = name_tag.get_text(strip=True)
 
-    # ----------------------------------------------------------------------------------------
-    def select_subcategory(self, driver, category_name, category_href):
-        """
-        Visita la URL de una categoría y busca posibles subcategorías o directamente 
-        la paginación de productos. Ajusta según la estructura de tiendasekono.com
-        """
-        try:
-            driver.get(category_href)
-            time.sleep(3)
+            # 3) SKU
+            sku = "SinSKU"
+            sku_div = soup.find("div", class_="product attribute sku")
+            if sku_div:
+                sku_val_div = sku_div.find("div", id="sku-value")
+                if sku_val_div:
+                    sku = sku_val_div.get_text(strip=True)
 
-            # Si hay subcategorías, puedes capturarlas de forma similar:
-            # sub_cats = driver.find_elements(
-            #     By.XPATH, 
-            #     "//div[@class='some-subcat-block']//a"
-            # )
-            # if sub_cats:
-            #     for sc in sub_cats:
-            #         sc_name = sc.text.strip()
-            #         sc_href = sc.get_attribute("href")
-            #         self.select_subcategory_2(driver, category_name, sc_name, sc_href)
-            # else:
-            #     # Si no hay subcategorías, extraemos productos directamente
-            #     self.extract_products_from_listing(driver, category_name, None, None)
-
-            # Para simplificar este ejemplo, asumo que ya estamos en la vista de productos
-            self.extract_products_from_listing(driver, category_name, None, None)
-
-        except Exception as e:
-            logging.error(f"Error al navegar subcategoría de {category_name}")
-            logging.error(f"Detalles: {e}")
-
-    # ----------------------------------------------------------------------------------------
-    def extract_products_from_listing(self, driver, category, subcategory, subcategory_2):
-        """
-        Desde la página de listado de productos, hace scrolling/paginación y
-        obtiene el link de cada producto.
-        """
-        try:
-            items = []
-            # Ejemplo: repetimos scroll/paginación hasta que no haya más productos
-            while True:
-                # Hacemos scroll hasta el final
-                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                time.sleep(2)
-
-                # Capturamos productos en la grilla (ajusta XPATH)
-                product_cards = driver.find_elements(
-                    By.XPATH, "//div[contains(@class,'product-item')]//a[contains(@class,'product-item-link')]"
-                )
-                # Se guardan href de cada producto
-                for card in product_cards:
-                    href = card.get_attribute("href")
-                    if href not in items:
-                        items.append(href)
-
-                # Verificamos si hay un botón "Ver más" o "Cargar más"
-                load_more = driver.find_elements(
-                    By.XPATH, 
-                    "//button[contains(text(), 'Ver más') or contains(text(), 'Cargar más')]"
-                )
-                if load_more:
+            # 4) Precio
+            price_val = 0.0
+            price_span = soup.select_one("span.price")
+            if price_span:
+                price_str = re.sub(r"[^\d,\.]", "", price_span.get_text(strip=True)).replace(",", ".")
+                if price_str:
                     try:
-                        driver.execute_script("arguments[0].click();", load_more[0])
-                        time.sleep(2)
+                        price_val = float(price_str)
                     except:
-                        break
-                else:
-                    break
+                        price_val = 0.0
 
-            logging.info(f"Se encontraron {len(items)} productos en la categoría {category}")
+            # 5) Imagen => <img id="magnifier-item-0" class="fotorama__img" src="..."
+            image_url = "Sin imagen"
+            img_tag = soup.find("img", {"id": "magnifier-item-0", "class": "fotorama__img"})
+            if img_tag and img_tag.has_attr("src"):
+                image_url = img_tag["src"]
 
-            # Ahora recorremos cada link de producto y extraemos su detalle
-            for i, prod_href in enumerate(items):
-                self.get_product_details(
-                    driver, i, prod_href,
-                    category, subcategory, subcategory_2
-                )
-
-        except Exception as e:
-            logging.error(f"Error en la extracción de productos para {category}: {e}")
-
-    # ----------------------------------------------------------------------------------------
-    @retry(wait=wait_random_exponential(min=2, max=6), stop=stop_after_attempt(3), reraise=True)
-    def get_product_details(self, driver, i, prod_href, category, subcategory, subcategory_2):
-        """
-        Accede a la página de detalle de un producto y extrae la información requerida.
-        """
-        start = time.time()
-        subcategory_3 = None  # Por si llegases a manejar más niveles
-
-        try:
-            driver.get(prod_href)
-            time.sleep(2)
-
-            # -------------
-            # 1. Nombre del producto
-            # -------------
-            product_name_elem = WebDriverWait(driver, 10).until(
-                EC.presence_of_element_located((
-                    By.XPATH,
-                    "//h1[contains(@class,'page-title')]"
-                ))
-            )
-            product_name = product_name_elem.text.strip()
-
-            # -------------
-            # 2. Marca (puede que en Sekono no haya marca específica, podrías usar 'Sekono')
-            # -------------
-            marca = "Sekono"  # Ajusta según el sitio si es que aparece la marca.
-
-            # -------------
-            # 3. Precio y/o precio descuento
-            # -------------
-            # Ajusta XPATH según la estructura real
-            try:
-                price_elem = driver.find_element(
-                    By.XPATH,
-                    "//span[contains(@id,'product-price')]"
-                )
-                raw_price = price_elem.text.strip()  # Ej: "₡6,500"
-                patron = r"[^0-9]"
-                price_value = int(re.sub(patron, "", raw_price)) if raw_price else None
-            except:
-                price_value = None
-
-            # Precio original (si hay descuento)
-            try:
-                sale_price_elem = driver.find_element(
-                    By.XPATH,
-                    "//span[contains(@class,'old-price')]"
-                )
-                raw_sale_price = sale_price_elem.text.strip()  # Ej: "₡8,000"
-                sale_price_value = int(re.sub(r"[^0-9]", "", raw_sale_price))
-                # Si existe sale_price, assumimos price_value es el precio final con descuento
-                final_price = price_value
-                price_value = sale_price_value
-                # Calcula porcentaje de ahorro
-                saving_value = f"-{round(100 - (final_price * 100 / price_value))}%"
-            except:
-                sale_price_value = None
-                final_price = price_value
-                saving_value = None
-
-            # -------------
-            # 4. SKU / Modelo (Depende de si lo publica la página)
-            # -------------
-            try:
-                sku_elem = driver.find_element(
-                    By.XPATH,
-                    "//div[contains(@class,'sku-wrapper')]"
-                )
-                sku = sku_elem.text.strip()  # Ej: "SKU: 12345"
-                sku = sku.replace("SKU:", "").strip()
-            except:
-                sku = None
-
-            # Modelo podría ser, por ejemplo, un color o referencia. Ajusta según sea tu caso:
-            modelo = None
-
-            # -------------
-            # 5. Descripción / Características
-            # -------------
-            try:
-                desc_elem = driver.find_element(
-                    By.XPATH,
-                    "//div[contains(@class,'product attribute description')]"
-                )
-                description = desc_elem.text.strip()
-            except:
-                description = ""
-
-            # Aquí podrías buscar composición, país de fabricación y demás, 
-            # pero en muchos e-commerce estos datos no están tan detallados como en H&M.
+            # 6) Descripción => "Marca: X", "Composición", "Hecho en..."
+            descripcion = "Sin descripción"
+            marca = "N/D"
             composition = ""
-            made_in = ""
+            made_in = None
 
-            # -------------
-            # 6. Stock / Tallas disponibles
-            # -------------
-            # Para Sekono, si es que manejan tallas y stock, habrá que ver su estructura en la página:
-            sizes_stock = []
-            sizes_out_stock = []
+            desc_div = soup.find("div", id="description")
+            if desc_div:
+                desc_attr = desc_div.find("div", class_="product attribute description")
+                if desc_attr:
+                    desc_value = desc_attr.find("div", id="description-value")
+                    if desc_value:
+                        descripcion = desc_value.get_text(separator=" | ", strip=True)
 
-            # Ejemplo si hay un selector de tallas:
-            # tallas = driver.find_elements(By.XPATH, "//div[@class='swatch-attribute-options']//div[contains(@class,'swatch-option text')]")
-            # for t in tallas:
-            #     talla = t.get_attribute("aria-label")  # O lo que corresponda
-            #     # Chequear si está "disabled" para saber si no hay stock
-            #     if "disabled" in t.get_attribute("class"):
-            #         sizes_out_stock.append((talla, "not available"))
-            #     else:
-            #         sizes_stock.append((talla, "available"))
+                        # Marca => "Marca: X"
+                        match_marca = re.search(r"Marca:\s*([^\.,|]+)", descripcion, re.IGNORECASE)
+                        if match_marca:
+                            marca = match_marca.group(1).strip()
 
-            # Si no hay tallas, puedes asumir un stock "available" genérico
-            if not sizes_stock and not sizes_out_stock:
-                sizes_stock = [("Única", "available")]
+                        # Composición => "Composición: 100% Algodón"
+                        match_comp = re.search(r"Composición(?: material)?:\s*([^\.,|]+)", descripcion, re.IGNORECASE)
+                        if match_comp:
+                            composition = match_comp.group(1).strip()
 
-            # -------------
-            # 7. Armar registros en self.records
-            # -------------
-            for size, stock_status in (sizes_stock + sizes_out_stock):
-                # upc => Concatena lo que necesites. Ej: "{sku}_{color}_{size}"
-                upc = f"{sku}_{size}" if sku else None
+                        # Hecho en => "Hecho en X" o "País de producción"
+                        match_madein = re.search(r"(?:Hecho en|País de producción):\s*([^\.,|]+)", descripcion, re.IGNORECASE)
+                        if match_madein:
+                            made_in = match_madein.group(1).strip()
 
+            # 7) Color => "modelo"
+            color = "No especificado"
+            color_div = soup.select_one("div.swatch-attribute.color")
+            if color_div:
+                # <span class="swatch-attribute-selected-option">Gris</span>
+                selected_span = color_div.select_one("span.swatch-attribute-selected-option")
+                if selected_span:
+                    color_txt = selected_span.get_text(strip=True)
+                    if color_txt:
+                        color = color_txt
+
+                # Si sigue = "No especificado", buscar <div class="swatch-option color selected" data-option-label="Gris">
+                if color == "No especificado":
+                    sel_opt = color_div.find("div", class_="swatch-option color selected")
+                    if sel_opt and sel_opt.has_attr("data-option-label"):
+                        color = sel_opt["data-option-label"].strip()
+
+            # 8) Tallas => "stock"
+            tamanos = []
+            # .swatch-attribute.talla_calzado o .swatch-attribute.talla_ropa
+            talla_div = soup.find("div", class_="swatch-attribute talla_calzado")
+            if not talla_div:
+                talla_div = soup.find("div", class_="swatch-attribute talla_ropa")
+            if talla_div:
+                # a) <select class="swatch-select">
+                select_tag = talla_div.find("select", class_="swatch-select")
+                if select_tag:
+                    option_tags = select_tag.find_all("option")
+                    for opt in option_tags:
+                        val = opt.get_text(strip=True)
+                        if val and "Elegir" not in val:
+                            tamanos.append(val)
+                # b) <div class="swatch-option text">
+                text_options = talla_div.find_all("div", class_="swatch-option text")
+                for opt in text_options:
+                    size_txt = opt.get_text(strip=True)
+                    if size_txt and "Elegir" not in size_txt:
+                        tamanos.append(size_txt)
+
+            if not tamanos:
+                tamanos = ["default"]
+
+            # 9) Registros (uno por talla)
+            for talla in tamanos:
+                upc_val = f"{sku}_{color}_{talla}"
                 record = {
                     "fecha": dt.datetime.now().strftime("%Y/%m/%d"),
-                    "canal": "Sekono",
+                    "canal": canal_category,
                     "category": category,
                     "subcategory": subcategory,
                     "subcategory_2": subcategory_2,
-                    "subcategory_3": subcategory_3,
+                    "subcategory_3": None,
                     "marca": marca,
-                    "modelo": modelo,
+                    "modelo": color,
                     "sku": sku,
-                    "upc": upc,
+                    "upc": upc_val,
                     "item": product_name,
-                    "item_characteristics": description,   # o "Descripción: {} || {}".format(...)
-                    "url sku": SEKONO_URL,                 # o la home, si quieres
-                    "image": None,                         # Ajusta para capturar la URL de la imagen principal
-                    "price": price_value,
-                    "sale_price": sale_price_value,
-                    "shipment cost": stock_status,         # A veces lo usamos para 'available' o 'not available'
-                    "sales flag": saving_value,
-                    "store id": "9999_sekono",
+                    "item_characteristics": descripcion,
+                    "url sku": product_url,
+                    "image": image_url,
+                    "price": price_val,
+                    "sale_price": None,
+                    "shipment cost": "available" if price_val > 0 else "not available",
+                    "sales flag": "",
+                    "store id": "9999_ekono_cr",
                     "store name": "ONLINE",
                     "store address": "ONLINE",
-                    "stock": size,                         # Talla o "no aplica"
+                    "stock": talla,
                     "upc wm": sku,
-                    "final_price": final_price,
+                    "final_price": price_val,
                     "upc wm2": sku,
                     "comp": None,
                     "composition": composition,
                     "made_in": made_in,
-                    "url item": prod_href
+                    "url item": product_url
                 }
                 self.records.append(record)
-
-            print(f"SEKONO {category} {subcategory} {subcategory_2} item {i+1}\t"
-                  f"{round(time.time() - start, 3)} s")
+                logging.info(f"Producto extraído: {record}")
 
         except Exception as e:
-            logging.error(f"Error al extraer detalles de producto en Sekono: {e}")
-            raise e
+            logging.error(f"Error al extraer detalles del producto {product_url}: {e}")
+
+    def save_to_csv(self):
+        if not self.records:
+            logging.warning("No hay datos para guardar.")
+            return
+
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        file_path = os.path.join(OUTPUT_DIR, CSV_FILENAME)
+
+        columns = [
+            "fecha", "canal", "category", "subcategory", "subcategory_2", "subcategory_3",
+            "marca", "modelo", "sku", "upc", "item",
+            "item_characteristics", "url sku", "image", "price",
+            "sale_price", "shipment cost", "sales flag", "store id",
+            "store name", "store address", "stock", "upc wm",
+            "final_price", "upc wm2", "comp", "composition",
+            "made_in", "url item"
+        ]
+        df = pd.DataFrame(self.records, columns=columns)
+        df.to_csv(file_path, index=False, encoding="utf-8-sig", float_format="%.2f")
+        logging.info(f"Datos guardados exitosamente en {file_path}")
+
+
+if __name__ == "__main__":
+    logging.getLogger().setLevel(logging.DEBUG)
+    scraper = EkonoScraper()
+    scraper.scrape()
