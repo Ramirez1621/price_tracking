@@ -10,7 +10,14 @@ from urllib.parse import urljoin
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 BASE_URL = "https://www.tiendasekono.com"
-START_URL = "https://www.tiendasekono.com/hombre.html"  # o "mujer.html"
+
+# 4 URLs: 2 hombre, 2 mujer
+ALL_URLS = [
+    "https://www.tiendasekono.com/hombre.html?cat=1177",
+    "https://www.tiendasekono.com/hombre.html?cat=1210",
+    "https://www.tiendasekono.com/mujer.html?cat=1042",
+    "https://www.tiendasekono.com/mujer.html?cat=976",
+]
 
 OUTPUT_DIR = "output_ekono"
 CSV_FILENAME = "ekono_data.csv"
@@ -19,30 +26,47 @@ class EkonoScraper:
     def __init__(self):
         self.records = []
         self.all_product_urls = set()
-        self.browser = None
 
     def scrape(self):
+        """
+        Método principal: recorre las URLs en ALL_URLS, 
+        extrae productos con paginación en cada una.
+        """
         with sync_playwright() as p:
-            self.browser = p.firefox.launch(headless=False)
-            page = self.browser.new_page()
+            browser = p.firefox.launch(headless=True)
+            page = browser.new_page()
 
-            page.goto(START_URL, timeout=60000)
-            logging.info(f"Navegando a la categoría: {START_URL}")
-            page.wait_for_load_state("networkidle", timeout=60000)
+            for url in ALL_URLS:
+                # Determinar "Hombre" o "Mujer" según la URL (si deseas).
+                # O puedes forzar "Hombre" para las 2 primeras y "Mujer" para las 2 últimas.
+                category = "Hombre" if "hombre" in url.lower() else "Mujer"
 
-            # Extraer productos con paginación
-            self.process_products_in_page(page, category="", subcategory="", subcategory_2="")
+                logging.info(f"Scrapeando URL: {url} (Categoría={category})")
+                try:
+                    page.goto(url, timeout=60000)
+                    page.wait_for_load_state("networkidle", timeout=60000)
+                except Exception as e:
+                    logging.error(f"Error al navegar a la URL {url}: {e}")
+                    continue
+
+                # Extraer productos con paginación para esta URL
+                self.process_products_in_page(page, category)
 
             self.save_to_csv()
-            self.browser.close()
+            browser.close()
 
-    def process_products_in_page(self, page, category, subcategory, subcategory_2):
+    def process_products_in_page(self, page, category):
+        """
+        Extrae productos de la página actual y avanza a la siguiente con "Siguiente",
+        hasta agotar páginas.
+        """
         while True:
             soup = BeautifulSoup(page.content(), "html.parser")
 
+            # 1) Lista de productos en la página actual
             product_ol = soup.find("ol", class_="products list items product-items")
             if not product_ol:
-                logging.info("No se encontró la lista de productos. Terminando.")
+                logging.info("No se encontró la lista de productos. Terminando esta URL.")
                 break
 
             product_lis = product_ol.find_all("li", class_="item product product-item")
@@ -57,77 +81,53 @@ class EkonoScraper:
                     continue
 
                 product_url = urljoin(BASE_URL, link_tag["href"])
+                # Evitar duplicados
                 if product_url not in self.all_product_urls:
                     self.all_product_urls.add(product_url)
                     new_count += 1
 
-                    self.process_product_detail_in_new_page(
-                        product_url,
-                        canal_category="EKONO (CR)",
-                        category=category,
-                        subcategory=subcategory,
-                        subcategory_2=subcategory_2
-                    )
+                    try:
+                        page.goto(product_url, timeout=60000)
+                        page.wait_for_load_state("networkidle", timeout=60000)
+                        self.extract_product_details(page, product_url, category)
+                    except Exception as e:
+                        logging.error(f"Error al procesar el producto {product_url}: {e}")
+                        continue
 
             if new_count == 0:
-                logging.info("No se encontraron productos nuevos. Rompiendo ciclo.")
+                logging.info("No se encontraron productos nuevos en esta página. Se asume fin de paginación.")
                 break
 
-            # Paginación => "Siguiente"
-            next_btn = soup.select_one("ul.pages-items li.item.pages-item-next a.action.next")
-            if not next_btn or not next_btn.get("href"):
-                logging.info("No hay siguiente página. Fin de paginación.")
+            # 2) Botón "Siguiente" => <ul class="pages-items"><li class="item pages-item-next">...
+            next_li = soup.select_one("ul.pages-items li.item.pages-item-next a.action.next")
+            if not next_li or not next_li.get("href"):
+                logging.info("No se encontró 'Siguiente'. Fin de paginación.")
                 break
 
-            next_url = urljoin(BASE_URL, next_btn["href"])
+            next_url = urljoin(BASE_URL, next_li["href"])
             logging.info(f"Pasando a la siguiente página: {next_url}")
+
+            # Ir a la siguiente página
             page.goto(next_url, timeout=60000)
             page.wait_for_load_state("networkidle", timeout=60000)
 
-    def process_product_detail_in_new_page(self, product_url, canal_category, category, subcategory, subcategory_2):
-        try:
-            new_context = self.browser.new_context()
-            detail_page = new_context.new_page()
-
-            detail_page.goto(product_url, timeout=120000, wait_until="domcontentloaded")
-            detail_page.wait_for_load_state("domcontentloaded", timeout=120000)
-            detail_page.wait_for_timeout(2000)  # Espera 2s adicional
-
-            self.extract_product_details(detail_page, product_url, canal_category, category, subcategory, subcategory_2)
-
-            detail_page.close()
-            new_context.close()
-        except Exception as e:
-            logging.error(f"Error al procesar {product_url}: {e}")
-
-    def extract_product_details(self, page, product_url,
-                                canal_category, category, subcategory, subcategory_2):
+    def extract_product_details(self, page, product_url, category):
+        """
+        Extrae datos del producto:
+          - Subcategoría = primera palabra del nombre
+          - Resto igual a tu script actual
+        """
         try:
             soup = BeautifulSoup(page.content(), "html.parser")
-            subcategory_3 = None
 
-            # 1) Extraer breadcrumb
-            breadcrumb_items = soup.select("ul.items > li.item")
-            # Ej: [0=Inicio, 1=Hombre, 2=NombreProducto]
-
-            # Forzamos: category = crumb[1], subcategory y subcategory_2 = ""
-            # si solo hay 2 o 3 items.
-            if len(breadcrumb_items) >= 2:
-                cat_text = breadcrumb_items[1].get_text(strip=True)
-                category = cat_text
-            else:
-                category = ""
-
-            # No usamos subcategory / subcategory_2 a menos que haya más items.
-            subcategory = ""
-            subcategory_2 = ""
-            subcategory_3 = None
-
-            # 2) Nombre => <h1 class="page-title">
+            # 1) Nombre => <h1 class="page-title">
             product_name = "Sin Nombre"
             name_tag = soup.find("h1", class_="page-title")
             if name_tag:
                 product_name = name_tag.get_text(strip=True)
+
+            # 2) Subcategoría = primera palabra
+            subcategory = product_name.split()[0] if product_name else ""
 
             # 3) SKU
             sku = "SinSKU"
@@ -148,9 +148,9 @@ class EkonoScraper:
                     except:
                         price_val = 0.0
 
-            # 5) Imagen => <img id="magnifier-item-0" class="fotorama__img" src="..."
+            # 5) Imagen => <img class="fotorama__img" ...
             image_url = "Sin imagen"
-            img_tag = soup.find("img", {"id": "magnifier-item-0", "class": "fotorama__img"})
+            img_tag = soup.find("img", {"class": "fotorama__img"})
             if img_tag and img_tag.has_attr("src"):
                 image_url = img_tag["src"]
 
@@ -173,7 +173,7 @@ class EkonoScraper:
                         if match_marca:
                             marca = match_marca.group(1).strip()
 
-                        # Composición => "Composición: 100% Algodón"
+                        # Composición => "Composición material: 100% Algodón"
                         match_comp = re.search(r"Composición(?: material)?:\s*([^\.,|]+)", descripcion, re.IGNORECASE)
                         if match_comp:
                             composition = match_comp.group(1).strip()
@@ -187,14 +187,11 @@ class EkonoScraper:
             color = "No especificado"
             color_div = soup.select_one("div.swatch-attribute.color")
             if color_div:
-                # <span class="swatch-attribute-selected-option">Gris</span>
                 selected_span = color_div.select_one("span.swatch-attribute-selected-option")
                 if selected_span:
                     color_txt = selected_span.get_text(strip=True)
                     if color_txt:
                         color = color_txt
-
-                # Si sigue = "No especificado", buscar <div class="swatch-option color selected" data-option-label="Gris">
                 if color == "No especificado":
                     sel_opt = color_div.find("div", class_="swatch-option color selected")
                     if sel_opt and sel_opt.has_attr("data-option-label"):
@@ -202,7 +199,6 @@ class EkonoScraper:
 
             # 8) Tallas => "stock"
             tamanos = []
-            # .swatch-attribute.talla_calzado o .swatch-attribute.talla_ropa
             talla_div = soup.find("div", class_="swatch-attribute talla_calzado")
             if not talla_div:
                 talla_div = soup.find("div", class_="swatch-attribute talla_ropa")
@@ -210,8 +206,7 @@ class EkonoScraper:
                 # a) <select class="swatch-select">
                 select_tag = talla_div.find("select", class_="swatch-select")
                 if select_tag:
-                    option_tags = select_tag.find_all("option")
-                    for opt in option_tags:
+                    for opt in select_tag.find_all("option"):
                         val = opt.get_text(strip=True)
                         if val and "Elegir" not in val:
                             tamanos.append(val)
@@ -225,15 +220,15 @@ class EkonoScraper:
             if not tamanos:
                 tamanos = ["default"]
 
-            # 9) Registros (uno por talla)
+            # 9) Generar registros (uno por talla)
             for talla in tamanos:
                 upc_val = f"{sku}_{color}_{talla}"
                 record = {
                     "fecha": dt.datetime.now().strftime("%Y/%m/%d"),
-                    "canal": canal_category,
+                    "canal": "EKONO (CR)",
                     "category": category,
                     "subcategory": subcategory,
-                    "subcategory_2": subcategory_2,
+                    "subcategory_2": "",
                     "subcategory_3": None,
                     "marca": marca,
                     "modelo": color,
@@ -266,6 +261,9 @@ class EkonoScraper:
             logging.error(f"Error al extraer detalles del producto {product_url}: {e}")
 
     def save_to_csv(self):
+        """
+        Genera el CSV con las mismas columnas que tu script actual.
+        """
         if not self.records:
             logging.warning("No hay datos para guardar.")
             return
